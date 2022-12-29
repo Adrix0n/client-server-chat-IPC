@@ -1,3 +1,9 @@
+/*
+    TODO:
+    - poprawić sposób wpisywania treści do programu (scanf() nie radzi sobie ze spacjami, a także sprawdzać poprawność wiadomości)
+    - poprawić komunikację klient-serwer tak, aby proces klienta nie wieszał się w oczekiwaniu na wiadomość od serwera (Jeżeli minie 5s. bez odpowiedzi to klient o tym poinformuje i będzie kontynuował działanie)
+*/
+
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -11,139 +17,111 @@
 #include <time.h>
 #include <signal.h>
 
-int MESSAGE_SIZE = 1088;
+#define MESSAGE_SIZE 1088
+#define NICKNAME_SIZE 20
+#define LONGER_MESSAGE_SIZE 4160
 
 struct message{
         long receiver;
         long msgType;
-        /*
-        możliwe typy wiadomości:
-        1. zalogowanie
-        2. wylogowanie
-        3. podglad listy uzytkownikow
-        4. podglad grupy (to samo co 3?)
-
-        5. zapisanie do grupy
-        6. wypisanie się z grupy
-        7. podgląd listy dostępnych grup
-
-        8. wysłanie wiadomości do grupy
-        9. wysłanie wiadomości do użytkownika
-        10. odebranie wiadomości
-        */
         long number;
         char text[1024];
-    };
+};
 
+struct messageLonger{
+    long receiver;
+    long msgType;
+    long pid;
+    char text[4096];
+};
 
-int isMessageValid(char* text);
+void showMenu();    // Wyświetla menu z wyborem możliwych akcji
+int isMessageValid(char* text); // funkcja sprawdza, czy podana wiadomość spełnia ustalone kryteria
 
 int messageLogin(int mid, char* nickname);
 int messageLogout(int mid);
 int messageShowClients(int mid);
 int messageShowGroupClients(int mid, char* groupName);
-
 int messageJoinGroup(int mid, char* groupName);
 int messageLeaveGroup(int mid, char* groupName);
 int messageShowGroups(int mid);
-
 int messageSendMessageToGroup(int mid, char* text);
 int messageSendMessageToClient(int mid, char* text);
-int messageReceiveMessage(int mid);
+int messageReceiveMessages(int mid);
+int sendMessage(long msgType, char* text);
 
-
+int sid;
 int main(){
-    int mid = msgget(0x1234, 0660 | IPC_CREAT);
-    printf("mid = %d\n",mid);
+    int mid = msgget(0x123, 0660 | IPC_CREAT);
+    //printf("mid = %d\n",mid);
+    sid = mid;
 
     struct message msg;
+    struct messageLonger msgLonger;
 
+    // Kod poniżej odpowiedzialny jest za logowanie klienta do serwera
     char nazwa[1024];
+    int attemps = 3;
     while(1){
         printf("Podaj swoja nazwe: ");
         scanf("%s",nazwa);
-        int res = messageLogin(mid,nazwa);
+        int res = sendMessage(1,nazwa);
         if(res == -1){
             printf("Serwer jest przeciazony lub nie odpowiada. Sprobuj pozniej.\n");
         }else{
+            system("clear");
             msgrcv(mid, &msg, MESSAGE_SIZE, getpid(), 0);
-            ///printf("%s\n", msg.text);
+            printf("%s\n", msg.text);
+            if(msg.number==-1){
+                printf("Pozostale proby: %d\n",--attemps);
+                if(attemps==0){
+                    printf("Zbyt wiele prob logowania.\n");
+                    return 0;
+                }
+            }
             if(msg.number!=-1)
                 break;
         }
     }
 
-    if(fork()==0){
-        while(1){
-            if((msg.msgType==8)||(msg.msgType==9)){
-                printf("\n%s\n",msg.text);
-            }else{
-                system("clear");
-                printf("\n%s\n",msg.text);
-                printf("1. Wyloguj sie\n");
-                printf("2. podglad listy uzytkownikow\n");
-                printf("3. podglad grupy\n");
-                printf("4. zapisanie do grupy\n");
-                printf("5. wypisanie sie z grupy\n");
-                printf("6. podglad listy dostepnych grup\n");
-                printf("7. wyslanie wiadomosci do grupy\n");
-                printf("8. wyslanie wiadomosci do uzytkownika\n");
-                printf("Wybierz numer wiadomosci: \n");
-            }
-
-            msgrcv(mid, &msg, MESSAGE_SIZE, getppid(),0);
-            if(msg.msgType==2){
-                system("clear");
-                printf("\n%s\n",msg.text);
-                kill(getppid(), SIGKILL);
-                exit(0);
-            }
-
-        }
-    }
-
+    // Po udanym logowaniu następuje wejście w nieskończoną pętlę komunikacji z serwerem
+    showMenu();
     while(1){
         int wybor;
         fflush(stdin);
         scanf("%d",&wybor);
         switch(wybor){
             case 1:{
-                messageLogout(mid);
+                sendMessage(2,"");
                 break;
                 }
             case 2:{
-                messageShowClients(mid);
+                sendMessage(3,"");
                 break;
             }
             case 3:{
                 char groupName[1024];
                 printf("Podaj nazwe grupy: ");
                 scanf("%s",groupName);
-                messageShowGroupClients(mid,groupName);
+                sendMessage(4,groupName);
                 break;
             }
             case 4:{
                 char groupName[1024];
                 printf("Podaj nazwe grupy: ");
                 scanf("%s",groupName);
-                messageJoinGroup(mid,groupName);
-                //msgrcv(mid, &msg, MESSAGE_SIZE, getpid(),0);
-                //printf("%s",msg.text);
+                sendMessage(5,groupName);
                 break;
             }
             case 5:{
                 char groupName[1024];
                 printf("Podaj nazwe grupy: ");
                 scanf("%s",groupName);
-                messageLeaveGroup(mid,groupName);
-                //msgrcv(mid, &msg, MESSAGE_SIZE, getpid(),0);
-                //printf("%s",msg.text);
+                sendMessage(6,groupName);
                 break;
             }
             case 6:{
-                messageShowGroups(mid);
-                //msgrcv(mid, &msg, MESSAGE_SIZE, getpid(),0);
-                //printf("%s",msg.text);
+                sendMessage(7,"");
                 break;               
             }
             case 7:{
@@ -155,14 +133,11 @@ int main(){
                 
                 printf("Podaj tresc wiadomosci: ");
                 fflush(stdin);
-                scanf("%s",groupName);
+                getchar();
+                fgets(groupName, sizeof groupName, stdin);
                 strcat(text," ");
                 strcat(text,groupName);
-                
-                messageSendMessageToGroup(mid,text);
-
-                //msgrcv(mid, &msg, MESSAGE_SIZE, getpid(),0);
-                //printf("%s",msg.text);
+                sendMessage(8,text);
                 break;
             }
             case 8:{
@@ -174,112 +149,92 @@ int main(){
                 
                 printf("Podaj tresc wiadomosci: ");
                 fflush(stdin);
-                scanf("%s",name);
+                getchar();
+                fgets(name, sizeof name, stdin);
                 strcat(text," ");
                 strcat(text,name);
-                messageSendMessageToClient(mid,text);
-
-                //msgrcv(mid, &msg, MESSAGE_SIZE, getpid(),0);
-                //printf("%s",msg.text);
+                sendMessage(9,text);
                 break;
             }
-            
-            default: {printf("zly wybor");}
+            case 9:{
+                sendMessage(10,"");
+                break;
+            }
+            case 10:{
+                sendMessage(11,"");
+                break;
+            }
+            case 11:{
+                char name[1024];
+                printf("Podaj nazwe uzytkownika: ");
+                scanf("%s",name);
+                sendMessage(12,name);
+                break;
+            }
+            case 12:{
+                char name[1024];
+                printf("Podaj nazwe uzytkownika: ");
+                scanf("%s",name);
+                sendMessage(13,name);
+                break;
+            }
+            default: {
+                printf("zly wybor\n");
+                continue;}
         };
 
+        if(wybor==9)
+            msgrcv(mid, &msgLonger, LONGER_MESSAGE_SIZE, getpid(),0);
+        else
+            msgrcv(mid, &msg, MESSAGE_SIZE, getpid(),0);
 
+        system("clear");
+        if(wybor==9)
+            printf("\n%s\n",msgLonger.text);
+        else
+            printf("\n%s\n",msg.text);
+
+        if(msg.msgType==2){
+                return 0;
+        }
+        showMenu();
     }
     return 0;
 }
-
 
 int isMessageValid(char* text){
     int i = 0;
     long length = strlen(text);
-    if(length>=512) return -1;
+    if(length>=512) return -1;  // Sprawdzenie, czy podana wiadomość ma poprawną długość
+    // Sprawdzenie, czy podana wiadomość składa się z odpowiednich znaków
     for(i=0;i<length;i++){
         if(!isascii(text[i]))
             return -1;
     }
-
     return 0;
 }
+void showMenu(){
+    printf("1. wyloguj sie\n");
+    printf("2. podglad listy uzytkownikow\n");
+    printf("3. podglad grupy\n");
+    printf("4. zapisanie do grupy\n");
+    printf("5. wypisanie sie z grupy\n");
+    printf("6. podglad listy dostepnych grup\n");
+    printf("7. wyslanie wiadomosci do grupy\n");
+    printf("8. wyslanie wiadomosci do uzytkownika\n");
+    printf("9. przeczytaj otrzymane wiadomosci\n");
+    printf("10. podglad listy zablokowanych uzytkownikow\n");
+    printf("11. zablokuj uzytkownika\n");
+    printf("12. odblokuj uzytkownika\n");
 
-int messageLogin(int mid, char* nickname){
-    struct message fmsg;
-    fmsg.receiver = 1;
-    fmsg.msgType = 1;
-    fmsg.number = getpid();
-    strcpy(fmsg.text,nickname);
-    return msgsnd(mid, &fmsg, MESSAGE_SIZE, IPC_NOWAIT); 
-}
-int messageLogout(int mid){
-    struct message fmsg;
-    fmsg.receiver =1;
-    fmsg.msgType =2;
-    fmsg.number= getpid();
-    strcpy(fmsg.text,"");
-    return msgsnd(mid, &fmsg, MESSAGE_SIZE, IPC_NOWAIT);
-
-}
-int messageShowClients(int mid){
-    struct message fmsg;
-    fmsg.receiver = 1;
-    fmsg.msgType = 3;
-    fmsg.number = getpid();
-    strcpy(fmsg.text,"");
-    return msgsnd(mid, &fmsg, MESSAGE_SIZE, IPC_NOWAIT);
-
-}
-int messageShowGroupClients(int mid, char* groupName){
-    struct message fmsg;
-    fmsg.receiver = 1;
-    fmsg.msgType = 4;
-    fmsg.number = getpid();
-    strcpy(fmsg.text,groupName);
-    return msgsnd(mid, &fmsg, MESSAGE_SIZE, IPC_NOWAIT);
+    printf("Wybierz numer wiadomosci: \n");
 }
 
-int messageJoinGroup(int mid, char* groupName){
+int sendMessage(long msgType, char* text){
     struct message fmsg;
     fmsg.receiver = 1;
-    fmsg.msgType = 5;
-    fmsg.number = getpid();
-    strcpy(fmsg.text,groupName);
-    return msgsnd(mid, &fmsg, MESSAGE_SIZE, IPC_NOWAIT);
-}
-int messageLeaveGroup(int mid, char* groupName){
-    struct message fmsg;
-    fmsg.receiver = 1;
-    fmsg.msgType = 6;
-    fmsg.number = getpid();
-    strcpy(fmsg.text,groupName);
-    return msgsnd(mid, &fmsg, MESSAGE_SIZE, IPC_NOWAIT);
-}
-int messageShowGroups(int mid){
-    struct message fmsg;
-    fmsg.receiver = 1;
-    fmsg.msgType = 7;
-    fmsg.number = getpid();
-    strcpy(fmsg.text,"");
-    return msgsnd(mid, &fmsg, MESSAGE_SIZE, IPC_NOWAIT);
-}
-
-int messageSendMessageToGroup(int mid, char* text){
-    struct message fmsg;
-    fmsg.receiver = 1;
-    fmsg.msgType = 8;
+    fmsg.msgType = msgType;
     fmsg.number = getpid();
     strcpy(fmsg.text,text);
-    return msgsnd(mid, &fmsg, MESSAGE_SIZE, IPC_NOWAIT);
+    return msgsnd(sid, &fmsg, MESSAGE_SIZE, 0);
 }
-int messageSendMessageToClient(int mid, char* text){
-    struct message fmsg;
-    fmsg.receiver = 1;
-    fmsg.msgType = 9;
-    fmsg.number = getpid();
-    strcpy(fmsg.text,text);
-    return msgsnd(mid, &fmsg, MESSAGE_SIZE, IPC_NOWAIT);
-}
-
-

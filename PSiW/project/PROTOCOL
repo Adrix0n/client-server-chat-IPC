@@ -1,0 +1,30 @@
+W programie występują dwie struktury, które są przesyłane pomiędzy klientem i serwerem.
+
+Struktura message:
+
+struct message{
+    long receiver;
+    long msgType;
+    long pid;
+    char text[1024];
+}msg;
+
+
+Struktura messageLonger:
+
+struct messageLonger{
+    long receiver;
+    long msgType;
+    long pid;
+    char text[4096];
+}msgLonger;
+
+Struktura messageLonger wykorzystywana jest jedynie w przypadku odbierania wiadomości i zawiera więcej miejsca na informację zwrotną.
+
+receiver oznacza odbiorcę komunikatu. W naszym protokole komunikacji wykorzystywana jest jedna kolejka komunikatów. Aby umożliwić wszystkim klientom i serwerowi odbieranie właściwych dla siebie komunikatów należało nadać odpowiednie wartości dla 'receiver'. Komunikat wysyłany do serwera ma zawsze 'receiver' równy 1. Komunikat wysyłany do klienta ma wartość 'receiver' równą id docelowego procesu klienta (pid danego klienta).
+msgType oznacza typ komunikatu jaki jest przesyłany. W zależności od wartości 'msgType' serwer podejmuje inne działania związane z przetworzeniem otrzymanego komunikatu.
+pid jest identyfikatorem procesu klienta. Dzięki przesłaniu 'pid' serwer może odnaleźć klienta w bazie klientów w celu odnalezienia odpowiednich informacji. Przesłanie 'pid' pozwala serwerowi również nadać odpowiednią wartość 'receiver' w komunikacie zwrotnym.
+text[] zawiera ciąg znaków przekazywany we wspólnej komunikacji pomiędzy klientem i serwerem. To w 'text[]' zawarta jest np. nazwa grupy, do której klient chce dołączyć, czy informacja zwrotna od serwera.
+
+Specjalnie dla przesłania 20 ostatnich wiadomości jakie otrzymał klient, utworzona została struktura messageLonger, różniąca się od struktury message jedynie rozmiarem 'text[]'.
+Podział komunikatów na 2 oddzielne byty służy zmniejszeniu rozmiaru jaki komunikaty będą zajmować w kolejce komunikatów w oczekiwaniu na odebranie. Tym samym niwelowane jest ryzyko zapełnienia kolejki komunikatów.

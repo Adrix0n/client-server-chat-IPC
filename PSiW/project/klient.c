@@ -52,8 +52,8 @@ int sendMessage(long msgType, char* text);
 
 int sid;
 int main(){
-    int mid = msgget(0x123, 0660 | IPC_CREAT);
-    //printf("mid = %d\n",mid);
+    int mid = msgget(0x1234, 0660);
+    printf("mid = %d\n",mid);
     sid = mid;
 
     struct message msg;
@@ -87,9 +87,13 @@ int main(){
     // Po udanym logowaniu następuje wejście w nieskończoną pętlę komunikacji z serwerem
     showMenu();
     while(1){
-        int wybor;
+        int wybor=0;
         fflush(stdin);
-        scanf("%d",&wybor);
+        char term;
+        if(scanf("%d%c", &wybor, &term) != 2 || term != '\n'){
+            getchar();
+            continue;
+        }
         switch(wybor){
             case 1:{
                 sendMessage(2,"");
@@ -103,6 +107,8 @@ int main(){
                 char groupName[1024];
                 printf("Podaj nazwe grupy: ");
                 scanf("%s",groupName);
+                if(isMessageValid(groupName)==-1)
+                    continue;
                 sendMessage(4,groupName);
                 break;
             }
@@ -110,6 +116,8 @@ int main(){
                 char groupName[1024];
                 printf("Podaj nazwe grupy: ");
                 scanf("%s",groupName);
+                if(isMessageValid(groupName)==-1)
+                    continue;
                 sendMessage(5,groupName);
                 break;
             }
@@ -117,6 +125,8 @@ int main(){
                 char groupName[1024];
                 printf("Podaj nazwe grupy: ");
                 scanf("%s",groupName);
+                if(isMessageValid(groupName)==-1)
+                    continue;
                 sendMessage(6,groupName);
                 break;
             }
@@ -137,6 +147,8 @@ int main(){
                 fgets(groupName, sizeof groupName, stdin);
                 strcat(text," ");
                 strcat(text,groupName);
+                if(isMessageValid(text)==-1)
+                    continue;
                 sendMessage(8,text);
                 break;
             }
@@ -153,6 +165,8 @@ int main(){
                 fgets(name, sizeof name, stdin);
                 strcat(text," ");
                 strcat(text,name);
+                if(isMessageValid(text)==-1)
+                    continue;
                 sendMessage(9,text);
                 break;
             }
@@ -168,6 +182,8 @@ int main(){
                 char name[1024];
                 printf("Podaj nazwe uzytkownika: ");
                 scanf("%s",name);
+                if(isMessageValid(name)==-1)
+                    continue;
                 sendMessage(12,name);
                 break;
             }
@@ -175,6 +191,8 @@ int main(){
                 char name[1024];
                 printf("Podaj nazwe uzytkownika: ");
                 scanf("%s",name);
+                if(isMessageValid(name)==-1)
+                    continue;
                 sendMessage(13,name);
                 break;
             }
@@ -205,7 +223,7 @@ int main(){
 int isMessageValid(char* text){
     int i = 0;
     long length = strlen(text);
-    if(length>=512) return -1;  // Sprawdzenie, czy podana wiadomość ma poprawną długość
+    if(length>=1000) return -1;  // Sprawdzenie, czy podana wiadomość ma poprawną długość
     // Sprawdzenie, czy podana wiadomość składa się z odpowiednich znaków
     for(i=0;i<length;i++){
         if(!isascii(text[i]))

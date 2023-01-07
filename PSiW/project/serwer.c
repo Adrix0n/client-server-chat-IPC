@@ -117,7 +117,7 @@ int main(){
     }
 
 
-    int mid = msgget(0x123, 0660 | IPC_CREAT);
+    int mid = msgget(0x1234, 0660 | IPC_CREAT);
     //printf("mid = %d\n",mid);
     sid = mid;  // mid dla wygody mógłby być globalny ale nie może, dlatego globalny sid staje się mid
                 // dzięki temu nie trzeba do funkcji przesyłać wartości mid

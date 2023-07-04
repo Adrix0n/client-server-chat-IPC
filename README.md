@@ -40,10 +40,10 @@ Because there is only one message queue for all the traffic, `long receiver` ind
 ## Gallery
 <p align="center">
   &nbsp;&nbsp;
-  <img src="https://github.com/Adrix0n/PPSem3/assets/99897531/b6f87d26-c089-495f-ae05-b55c9c459c97" alt="overview" width="1000">
+  <img src="https://github.com/Adrix0n/client-server-chat-IPC/assets/99897531/178b961c-cf31-4a86-81f0-f8d0318832cb" alt="overview" width="1000">
   &nbsp;&nbsp;
-  <img src="https://github.com/Adrix0n/PPSem3/assets/99897531/0ecbea1f-ab29-4cbe-8a81-75e65758fa94" alt="chat-history" width="600">
+  <img src="https://github.com/Adrix0n/client-server-chat-IPC/assets/99897531/7d4a1513-7cae-42ad-860f-084b22c4ba4e" alt="chat-history" width="600">
   &nbsp;&nbsp;
-  <img src="https://github.com/Adrix0n/PPSem3/assets/99897531/535cbf18-e6cc-4198-b398-fe626e9d7ab9" alt="options" width="500">
+  <img src="https://github.com/Adrix0n/client-server-chat-IPC/assets/99897531/81f19be3-14ba-49cb-90fe-b17ee30bdbf5" alt="menu" width="500">
   &nbsp;&nbsp;
 </p>
